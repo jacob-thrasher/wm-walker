@@ -1,0 +1,29 @@
+
+from shimmy.dm_control_compatibility import DmControlCompatibilityV0
+from stable_baselines3 import PPO
+from RL.env import load_environment
+
+render_kwargs = dict(
+        width       = 224,
+        height      = 224,
+    )
+# render_kwargs["camera_name"] = cfg["camera_name"]
+env = load_environment('Walker2d-v4', render_kwargs)
+
+
+model = PPO(
+    "MlpPolicy",
+    env,
+    verbose=1,
+    learning_rate=3e-4,
+    n_steps=2048,
+    batch_size=64,
+    n_epochs=10,
+    gamma=0.99,
+    gae_lambda=0.95,
+    clip_range=0.2,
+)
+
+model.learn(total_timesteps=1_000_000)
+
+model.save('models/ppo')
