@@ -2,6 +2,7 @@
 import argparse
 import sys
 from pathlib import Path
+from stable_baselines3 import PPO
  
 # ── Optional pretty output ────────────────────────────────────────────────────
 try:
@@ -96,9 +97,14 @@ def run(cfg: dict) -> None:
     obs, info = env.reset(seed=cfg["random_seed"])
     frames.append(env.render())   # capture the initial frame
  
+
+    model = PPO.load('./models/ppo.zip', env=env)
+
+
     print(f"\n  Running up to {cfg['num_steps']} steps …")
     for step in range(cfg["num_steps"]):
-        action = random_policy(obs, action_space)
+        # action = random_policy(obs, action_space)
+        action = model.predict(obs)[0]
         obs, reward, terminated, truncated, info = env.step(action)
         rewards.append(reward)
  
