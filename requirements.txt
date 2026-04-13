@@ -8,3 +8,6 @@ imageio[pyav]
 matplotlib
 shimmy==2.0.0
 stable_baselines3
+doy==1.9.2
+omegaconf==2.3.0
+tensordict==0.12.1
