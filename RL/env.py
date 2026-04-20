@@ -176,9 +176,10 @@ def list_environments() -> None:
             print(f"  {env_id:<35} {desc}")
         print()
 
-def load_environment(env_id, render_kwargs):
+def load_environment(env_id, render_kwargs, num_envs=1, ):
     env = gym.make(
             env_id,
+            num_envs=num_envs,
             render_mode = "rgb_array",
             **render_kwargs,
         )

@@ -68,13 +68,19 @@ def get_value(self, x):
 
 policy.get_value = partial(get_value, policy)
 
-run, logger = config.wandb_init("lapo_stage3", config.get_wandb_cfg(cfg))
+# run, logger = config.wandb_init("lapo_stage3", config.get_wandb_cfg(cfg))
 
-envs = env_utils.setup_procgen_env(
-    num_envs=cfg.stage3.num_envs,
-    env_id=cfg.env_name,
-    gamma=cfg.stage3.gamma,
+envs = env_utils.setup_gym_env(env_id='Walker2d', num_envs=cfg.stage3.num_envs, render_kwargs=dict(
+        width       = 64,
+        height      = 64,
+    )
 )
+
+# envs = env_utils.setup_procgen_env(
+#     num_envs=cfg.stage3.num_envs,
+#     env_id=cfg.env_name,
+#     gamma=cfg.stage3.gamma,
+# )
 
 _lr = cfg.stage3.lr
 opt, lr_sched = doy.LRScheduler.make(

@@ -15,6 +15,7 @@ data = np.load('expert_data/walker/test/0.npz')
 obs = data['obs']
 print(obs.shape)
 print(data['ta'].shape)
+print(data['ta'])
 print(data.keys())
 # print(obs.size())
 # print(obs.shape)

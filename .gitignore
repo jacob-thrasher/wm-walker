@@ -2,6 +2,8 @@ claude_mujoco.py
 figures/*
 models/*
 expert_data/*
+exp_results/*
+.vscode
 
 
 # Byte-compiled / optimized / DLL files

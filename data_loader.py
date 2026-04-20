@@ -21,7 +21,7 @@ def _create_tensordict(length: int, obs_depth) -> TensorDict:
     return TensorDict(
         {
             "obs": torch.zeros(length, obs_depth, 64, 64, dtype=torch.uint8),
-            "ta": torch.zeros(length, 6, dtype=torch.long),
+            "ta": torch.zeros(length, 6, dtype=torch.float),
             "done": torch.zeros(length, dtype=torch.bool),
             "rewards": torch.zeros(length),
             "ep_returns": torch.zeros(length),

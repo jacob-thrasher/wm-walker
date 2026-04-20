@@ -8,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 # from procgen import ProcgenEnv
 
+from RL.env import load_environment
+
 
 class RealtimeViewer():
     def __init__(self):
@@ -78,6 +80,16 @@ def normalize_return(ep_ret, env_name):
         v=ep_ret,
     )
 
+
+def setup_gym_env(env_id, num_envs, render_kwargs):
+    # env = load_environment(env_id=env_id, num_envs=num_envs, **render_kwargs)
+    env = gym.make(
+            env_id,
+            num_envs=num_envs,
+            render_mode = "rgb_array",
+            **render_kwargs,
+        )
+    return env
 
 # def setup_procgen_env(num_envs, env_id, gamma,  distribution_mode='easy', render_mode='rgb_array'):
 #     envs = ProcgenEnv(

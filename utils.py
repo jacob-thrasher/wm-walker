@@ -97,7 +97,8 @@ def train_decoder(
     Evaluate the quality of the learned latent representation:
         -> How much information about true actions do latent actions contain?
     """
-    TA_DIM = 15
+    # TA_DIM = 15
+    TA_DIM=6
     decoder = create_decoder(data["la"].shape[-1], TA_DIM, hidden_sizes=hidden_sizes)
     opt = torch.optim.AdamW(decoder.parameters())
     logger = doy.Logger(use_wandb=False)
@@ -115,14 +116,15 @@ def train_decoder(
         for batch in dataloader:
             pred_ta = decoder(batch["la"])
             ta = batch["ta"][:, -2]
-            loss = F.cross_entropy(pred_ta, ta)
+            # loss = F.cross_entropy(pred_ta, ta)
+            loss = F.mse_loss(pred_ta, ta)
             opt.zero_grad()
             loss.backward()
             opt.step()
 
             logger(
                 step=i,
-                train_acc=(pred_ta.argmax(-1) == ta).float().mean(),
+                # train_acc=(pred_ta.argmax(-1) == ta).float().mean(),
                 train_loss=loss,
             )
 
@@ -133,15 +135,15 @@ def train_decoder(
 
                     logger(
                         step=i,
-                        test_loss=F.cross_entropy(test_pred_ta, test_ta),
-                        test_acc=(test_pred_ta.argmax(-1) == test_ta).float().mean(),
+                        test_loss=F.mse_loss(test_pred_ta, test_ta), # F.cross_entropy(test_pred_ta, test_ta),
+                        # test_acc=(test_pred_ta.argmax(-1) == test_ta).float().mean(),
                     )
             step += 1
 
     metrics = dict(
-        train_acc=np.mean(logger["train_acc"][-15:]),
+        # train_acc=np.mean(logger["train_acc"][-15:]),
         train_loss=np.mean(logger["train_loss"][-15:]),
-        test_acc=logger["test_acc"][-1],
+        # test_acc=logger["test_acc"][-1],
         test_loss=logger["test_loss"][-1],
     )
 
