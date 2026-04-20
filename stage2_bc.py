@@ -38,7 +38,7 @@ test_iter = test_data.get_iter(128)
 _, eval_metrics = utils.eval_latent_repr(train_data, idm)
 doy.log(f"Decoder metrics sanity check: {eval_metrics}")
 
-run, logger = config.wandb_init("lapo_stage2", config.get_wandb_cfg(cfg))
+# run, logger = config.wandb_init("lapo_stage2", config.get_wandb_cfg(cfg))
 
 for step in loop(
     cfg.stage2.steps + 1, desc="[green bold](stage-2) Training latent policy via BC"
@@ -56,20 +56,20 @@ for step in loop(
     loss.backward()
     opt.step()
 
-    logger(
-        step=step,
-        loss=loss,
-        **lr_sched.get_state(),
-    )
+    # logger(
+    #     step=step,
+    #     loss=loss,
+    #     **lr_sched.get_state(),
+    # )
 
     if step % 200 == 0:
         policy.eval()
         test_batch = next(test_iter)
         idm.label(test_batch)
         test_loss = F.mse_loss(policy(test_batch["obs"][:, -2]), test_batch["la"])
-        logger(step=step, test_loss=test_loss)
+        # logger(step=step, test_loss=test_loss)
 
 torch.save(
-    dict(policy=doy.state_dict_orig(policy), cfg=cfg, logger=logger),
+    dict(policy=doy.state_dict_orig(policy), cfg=cfg),#, logger=logger),
     paths.get_latent_policy_path(cfg.exp_name),
 )

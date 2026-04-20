@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Union
 
 import doy
 import env_utils
@@ -74,7 +74,7 @@ class Stage3Config:
     clip_vloss: bool
     vf_coef: float
     max_grad_norm: float
-    target_kl: float | None
+    target_kl: Union[float, None] #float | None
     gamma: float
     gae_lambda: float
     batch_size: int
@@ -85,7 +85,7 @@ class Stage3Config:
 class Config:
     env_name: str
     exp_name: str
-    stage_exp_name: str | None
+    stage_exp_name: Union[str, None] #str | None
 
     model: ModelConfig
     stage1: Stage1Config
@@ -94,9 +94,9 @@ class Config:
 
 
 def get(
-    base_cfg: DictConfig | None = None,
+    base_cfg: Union[DictConfig, None] = None, #DictConfig | None = None,
     use_cli_args: bool = True,
-    override_args: list[str] | None = None,
+    override_args: Union[list[str], None] = None, #list[str] | None = None,
     reload_keys: tuple[str, ...] = (),
 ) -> Config:
     """Initialize a config (either from config.yaml or from the base_cfg), apply cli and override flags, and validate it."""
@@ -159,7 +159,7 @@ def wandb_init(
     project: str,
     config: dict,
     wandb_enabled: bool = True,
-    wandb_tags: list[str] | None = None,
+    wandb_tags: Union[str, None] = None#list[str] | None = None,
 ):
     run_name = config["exp_name"]
     if config["stage_exp_name"]:

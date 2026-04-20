@@ -1,6 +1,7 @@
 
 from shimmy.dm_control_compatibility import DmControlCompatibilityV0
 from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 import sys
 from pathlib import Path
 
@@ -12,15 +13,15 @@ from RL.env import load_environment
 
 
 render_kwargs = dict(
-        width       = 224,
-        height      = 224,
+        width       = 64,
+        height      = 64,
     )
 # render_kwargs["camera_name"] = cfg["camera_name"]
 env = load_environment('Walker2d-v4', render_kwargs)
 
 
-model = PPO(
-    "MlpPolicy",
+model = RecurrentPPO(
+    "MlpLstmPolicy",
     env,
     verbose=1,
     learning_rate=3e-4,

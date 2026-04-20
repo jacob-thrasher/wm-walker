@@ -112,8 +112,9 @@ def action_selection_hook(next_obs: torch.Tensor, global_step: int = None, actio
 
     action_given = action is not None
 
-    if not action_given:
-        action = probs.sample()
+    # if not action_given:
+    #     action = probs.sample()
+    action = torch.tanh(logits)
 
     if not action_given:
         # update sl-dec data buffer
@@ -133,10 +134,11 @@ def reset_decoder(decoder):
             assert isinstance(layer, torch.nn.ReLU)
 
 
+# THIS IS WHAT I NEED TO CHANGE
 def post_update_hook(update, global_step):
     if 10_000 < global_step < 400_000 and (global_step < 50_000 or update % 20 == 0):
         # do decoder online SL training step
-        train_ta = torch.stack(buf_ta)[1:-1].flatten(0, 1)
+        train_ta = torch.stack(buf_ta)[1:-1]#.flatten(0, 1) --My change
         train_la = torch.stack(buf_la).flatten(0, 1)
 
         reset_decoder(policy.decoder)
@@ -152,7 +154,8 @@ def post_update_hook(update, global_step):
                 decoder_opt.zero_grad()
                 outputs = policy.decoder(inputs)
 
-                loss = F.cross_entropy(outputs, labels, label_smoothing=0.05)
+                # loss = F.cross_entropy(outputs, labels, label_smoothing=0.05) -- My change
+                loss = F.mse_loss(outputs, labels)
                 loss.backward()
                 decoder_opt.step()
             print(f"[{global_step}] loss @ epoch={epoch}: {loss.item()}")

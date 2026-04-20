@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import imageio.v2 as imageio
 import matplotlib.pyplot as plt
+from typing import Union
 from models import IDM, Policy, WorldModel
 from tensordict import TensorDict
 from torch import Tensor
@@ -18,7 +19,7 @@ def obs_to_img(obs: Tensor) -> Tensor:
     return ((obs.permute(1, 2, 0) + 0.5) * 255).to(torch.uint8).numpy(force=True)
 
 
-def create_decoder(in_dim, out_dim, device=config.DEVICE, hidden_sizes=(128, 128), state_dict: dict | None = None,):
+def create_decoder(in_dim, out_dim, device=config.DEVICE, hidden_sizes=(128, 128), state_dict: Union[dict, None] = None,):
     decoder = []
     in_size = h = in_dim
     for h in hidden_sizes:
@@ -33,7 +34,7 @@ def create_decoder(in_dim, out_dim, device=config.DEVICE, hidden_sizes=(128, 128
     return layers
 
 def create_dynamics_models(
-    model_cfg: config.ModelConfig, state_dicts: dict | None = None
+    model_cfg: config.ModelConfig, state_dicts: Union[dict, None] = None
 ) -> tuple[IDM, WorldModel]:
     obs_depth = 3
     idm_in_depth = obs_depth * (2 + config.ADD_TIME_HORIZON)
@@ -65,7 +66,7 @@ def create_policy(
     model_cfg: config.ModelConfig,
     action_dim: int,
     policy_in_depth: int = 3,
-    state_dict: dict | None = None,
+    state_dict: Union[dict, None] = None,
     strict_loading: bool = True,
 ):
     policy = Policy(
