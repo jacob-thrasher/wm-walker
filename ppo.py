@@ -36,7 +36,6 @@ from tensordict import TensorDict
 def create_buffer(
     num_steps: int, num_envs: int, obs_space, action_space, device
 ) -> TensorDict:
-    print(obs_space.shape)
     return TensorDict(
         {
             "obs": torch.zeros(
@@ -247,7 +246,8 @@ def train(
 
     global_step = 0
     start_time = time.time()
-    next_obs = torch.from_numpy(envs.reset()).permute((0, 3, 1, 2)).to(device)
+    out = envs.reset()
+    next_obs = torch.tensor(envs.render()).permute(0, 3, 1, 2).to(device)
     next_done = torch.zeros(rl_cfg.num_envs).to(device).float()
     num_updates = rl_cfg.steps // rl_cfg.batch_size
 
@@ -278,10 +278,11 @@ def train(
             buf["actions"][step] = action
 
             # [env.step]
-            next_obs, reward, done, info = envs.step(action.cpu().numpy())
+            next_state, reward, done, trunc, info = envs.step(action.cpu().numpy())
+            next_obs = envs.render()
             buf["rewards"][step] = torch.tensor(reward).to(device).view(-1)
-            next_obs = torch.from_numpy(next_obs).permute((0, 3, 1, 2)).to(device)
-            next_done = torch.from_numpy(done).to(device).float()
+            next_obs = torch.tensor(next_obs).permute((0, 3, 1, 2)).to(device)
+            next_done = torch.tensor(done).to(device).float()
 
             # for substep, item in enumerate(info):
             #     if "episode" in item.keys():

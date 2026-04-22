@@ -79,12 +79,8 @@ envs = env_utils.setup_gym_env_vectorized(env_id='Walker2d-v4',
                                                         )
                                         )
 
-out = envs.reset()
-print(envs.observation_space)
-print(len(envs.render()))
-arr = np.asarray((envs.render()))
-print(arr.shape)
-input()
+
+
 # print(envs.get_attr('observation_space'))
 # input()
 # envs = env_utils.setup_procgen_env(
@@ -140,7 +136,8 @@ def action_selection_hook(next_obs: torch.Tensor, global_step: int = None, actio
             buf_la.append(idm(torch.cat(list(buf_obs), dim=1))[0]["la"])
         buf_ta.append(action)
 
-    return action, probs.log_prob(action), probs.entropy(), policy.value_head(hidden_rl)
+    # return action, probs.log_prob(action), probs.entropy(), policy.value_head(hidden_rl)
+    return action, 0, torch.zeros(64), policy.value_head(hidden_rl)
 
 
 def reset_decoder(decoder):
@@ -151,18 +148,18 @@ def reset_decoder(decoder):
             assert isinstance(layer, torch.nn.ReLU)
 
 
-# THIS IS WHAT I NEED TO CHANGE
 def post_update_hook(update, global_step):
     if 10_000 < global_step < 400_000 and (global_step < 50_000 or update % 20 == 0):
         # do decoder online SL training step
-        train_ta = torch.stack(buf_ta)[1:-1]#.flatten(0, 1) --My change
+        train_ta = torch.stack(buf_ta)[1:-1].flatten(0, 1) # --My change
         train_la = torch.stack(buf_la).flatten(0, 1)
 
         reset_decoder(policy.decoder)
 
         decoder_opt = torch.optim.Adam(policy.decoder.parameters())
 
-        dataset = TensorDataset(train_la, train_ta.long())
+        print(train_la.size(), train_ta.size())
+        dataset = TensorDataset(train_la, train_ta)
         dataloader = DataLoader(dataset, batch_size=512, shuffle=True)
 
         num_epochs = 3

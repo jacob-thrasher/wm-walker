@@ -11,3 +11,4 @@ stable_baselines3
 doy==1.9.2
 omegaconf==2.3.0
 tensordict==0.12.1
+sb3_contrib==2.8.0

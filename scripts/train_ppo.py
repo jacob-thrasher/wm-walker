@@ -31,7 +31,7 @@ model = RecurrentPPO(
     gamma=0.99,
     gae_lambda=0.95,
     clip_range=0.2,
-    device='cpu'
+    device='cuda'
 )
 
 model.learn(total_timesteps=1_000_000)
