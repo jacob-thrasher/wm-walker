@@ -7,6 +7,8 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 # from procgen import ProcgenEnv
+import gymnasium as gym
+from gymnasium.vector import SyncVectorEnv
 
 from RL.env import load_environment
 
@@ -81,15 +83,23 @@ def normalize_return(ep_ret, env_name):
     )
 
 
-def setup_gym_env(env_id, num_envs, render_kwargs):
+def setup_gym_env(env_id, render_kwargs):
     # env = load_environment(env_id=env_id, num_envs=num_envs, **render_kwargs)
     env = gym.make(
             env_id,
-            num_envs=num_envs,
             render_mode = "rgb_array",
             **render_kwargs,
         )
     return env
+
+def _setup_gym_env_vectorized(env_id, render_kwargs):
+    def _init():
+        return gym.make(env_id, render_mode="rgb_array", **render_kwargs)
+    return _init
+
+def setup_gym_env_vectorized(env_id, num_envs, render_kwargs):
+    envs = SyncVectorEnv([_setup_gym_env_vectorized(env_id, render_kwargs) for _ in range(num_envs)])
+    return envs
 
 # def setup_procgen_env(num_envs, env_id, gamma,  distribution_mode='easy', render_mode='rgb_array'):
 #     envs = ProcgenEnv(

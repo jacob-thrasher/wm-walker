@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import utils
+import numpy as np
 from doy import PiecewiseLinearSchedule as PLS
 from torch.distributions import Categorical
 from torch.utils.data import DataLoader, TensorDataset
@@ -70,12 +71,22 @@ policy.get_value = partial(get_value, policy)
 
 # run, logger = config.wandb_init("lapo_stage3", config.get_wandb_cfg(cfg))
 
-envs = env_utils.setup_gym_env(env_id='Walker2d', num_envs=cfg.stage3.num_envs, render_kwargs=dict(
-        width       = 64,
-        height      = 64,
-    )
-)
+envs = env_utils.setup_gym_env_vectorized(env_id='Walker2d-v4', 
+                                          num_envs=cfg.stage3.num_envs, 
+                                          render_kwargs=dict(
+                                                            width       = 64,
+                                                            height      = 64,
+                                                        )
+                                        )
 
+out = envs.reset()
+print(envs.observation_space)
+print(len(envs.render()))
+arr = np.asarray((envs.render()))
+print(arr.shape)
+input()
+# print(envs.get_attr('observation_space'))
+# input()
 # envs = env_utils.setup_procgen_env(
 #     num_envs=cfg.stage3.num_envs,
 #     env_id=cfg.env_name,
@@ -166,7 +177,7 @@ def post_update_hook(update, global_step):
                 decoder_opt.step()
             print(f"[{global_step}] loss @ epoch={epoch}: {loss.item()}")
 
-
+logger = None
 policy = ppo.train(
     policy,
     opt,
@@ -183,7 +194,7 @@ torch.save(
     {
         "policy": policy.state_dict(),
         "cfg": cfg,
-        "logger": logger,
+        # "logger": logger,
     },
     out_path,
 )

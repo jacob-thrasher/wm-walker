@@ -12,7 +12,7 @@ from RL.utils import save_video
 # TODO: Refactor to collect large amounts of data
 def run_model(cfg, render_kwargs, out_dir):
     # render_kwargs["camera_name"] = cfg["camera_name"]
-    env = load_environment('Walker2d-v4', render_kwargs)
+    env = load_environment('Walker2d-v4', render_kwargs, num_envs=1)
     obs_space    = env.observation_space
     action_space = env.action_space
 

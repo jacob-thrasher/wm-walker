@@ -9,17 +9,42 @@ from data_loader import normalize_obs
 from tensordict import TensorDict
 
 
+# def create_buffer(
+#     num_steps: int, num_envs: int, obs_space, action_space, device
+# ) -> TensorDict:
+#     print(obs_space.shape)
+#     return TensorDict(
+#         {
+#             "obs": torch.zeros(
+#                 (num_steps, num_envs, obs_space.shape[2], *obs_space.shape[:2]),
+#                 dtype=torch.uint8,
+#             ),
+#             "actions": torch.zeros(
+#                 (num_steps, num_envs, *action_space.shape), dtype=torch.long
+#             ),
+#             "logprobs": torch.zeros((num_steps, num_envs)),
+#             "rewards": torch.zeros((num_steps, num_envs)),
+#             "dones": torch.zeros((num_steps, num_envs)),
+#             "values": torch.zeros((num_steps, num_envs)),
+#             # "adv": None,
+#             # "returns": None,
+#         },
+#         batch_size=num_steps,
+#         device=device,
+#     )
+
 def create_buffer(
     num_steps: int, num_envs: int, obs_space, action_space, device
 ) -> TensorDict:
+    print(obs_space.shape)
     return TensorDict(
         {
             "obs": torch.zeros(
-                (num_steps, num_envs, obs_space.shape[2], *obs_space.shape[:2]),
+                (num_steps, num_envs, 3, 64, 64),
                 dtype=torch.uint8,
             ),
             "actions": torch.zeros(
-                (num_steps, num_envs, *action_space.shape), dtype=torch.long
+                (num_steps, num_envs, 6), dtype=torch.long
             ),
             "logprobs": torch.zeros((num_steps, num_envs)),
             "rewards": torch.zeros((num_steps, num_envs)),
@@ -31,6 +56,7 @@ def create_buffer(
         batch_size=num_steps,
         device=device,
     )
+
 
 
 def _batch_update(
@@ -185,18 +211,18 @@ def _update(
     var_y = np.var(y_true)
     explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
-    logger(
-        step=global_step,
-        global_step=global_step,
-        value_loss=v_loss,
-        policy_loss=pg_loss,
-        entropy=entropy_loss,
-        approx_kl=approx_kl,
-        clipfrac=np.mean(clipfracs),
-        explained_variance=explained_var,
-        SPS=int(global_step / (time.time() - start_time)),
-        **lr_sched.get_state(),
-    )
+    # logger(
+    #     step=global_step,
+    #     global_step=global_step,
+    #     value_loss=v_loss,
+    #     policy_loss=pg_loss,
+    #     entropy=entropy_loss,
+    #     approx_kl=approx_kl,
+    #     clipfrac=np.mean(clipfracs),
+    #     explained_variance=explained_var,
+    #     SPS=int(global_step / (time.time() - start_time)),
+    #     **lr_sched.get_state(),
+    # )
 
 
 def train(
@@ -257,18 +283,18 @@ def train(
             next_obs = torch.from_numpy(next_obs).permute((0, 3, 1, 2)).to(device)
             next_done = torch.from_numpy(done).to(device).float()
 
-            for substep, item in enumerate(info):
-                if "episode" in item.keys():
-                    logger(
-                        step=global_step + substep,
-                        global_step=global_step + substep,
-                        episodic_return=item["episode"]["r"],
-                        episodic_length=item["episode"]["l"],
-                        episodic_return_norm=envs.normalize_return(
-                            item["episode"]["r"]
-                        ),
-                    )
-                    break
+            # for substep, item in enumerate(info):
+            #     if "episode" in item.keys():
+            #         logger(
+            #             step=global_step + substep,
+            #             global_step=global_step + substep,
+            #             episodic_return=item["episode"]["r"],
+            #             episodic_length=item["episode"]["l"],
+            #             episodic_return_norm=envs.normalize_return(
+            #                 item["episode"]["r"]
+            #             ),
+            #         )
+            #         break
             global_step += 1 * rl_cfg.num_envs
 
         _bootstrap(policy, buf, next_obs, next_done, rl_cfg)
