@@ -98,7 +98,7 @@ def run(cfg: dict) -> None:
     frames.append(env.render())   # capture the initial frame
  
 
-    model = PPO.load('./models/ppo.zip', env=env)
+    model = PPO.load('./logs/walker2d/final_model.zip', env=env)
 
 
     print(f"\n  Running up to {cfg['num_steps']} steps …")

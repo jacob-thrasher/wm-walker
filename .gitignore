@@ -4,6 +4,7 @@ models/*
 expert_data/*
 exp_results/*
 .vscode
+logs
 
 
 # Byte-compiled / optimized / DLL files
