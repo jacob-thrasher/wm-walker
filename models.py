@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections import deque
 from funcy import partition
 from tensordict import TensorDict
 from torch.distributions import Categorical
@@ -15,6 +16,35 @@ def merge_TC_dims(x: torch.Tensor):
     """x.shape == (B, T, C, H, W) -> (B, T*C, H, W)"""
     return x.view(x.shape[0], -1, *x.shape[3:])
 
+
+class SIGReg(torch.nn.Module):
+    """Sketch Isotropic Gaussian Regularizer (single-GPU!)"""
+
+    def __init__(self, knots=17, num_proj=1024):
+        super().__init__()
+        self.num_proj = num_proj
+        t = torch.linspace(0, 3, knots, dtype=torch.float32)
+        dt = 3 / (knots - 1)
+        weights = torch.full((knots,), 2 * dt, dtype=torch.float32)
+        weights[[0, -1]] = dt
+        window = torch.exp(-t.square() / 2.0)
+        self.register_buffer("t", t)
+        self.register_buffer("phi", window)
+        self.register_buffer("weights", weights * window)
+
+    def forward(self, proj):
+        """
+        proj: (T, B, D)
+        """
+        # sample random projections
+        A = torch.randn(proj.size(-1), self.num_proj, device=proj.device)
+        A = A.div_(A.norm(p=2, dim=0))
+        # compute the epps-pulley statistic
+        x_t = (proj @ A).unsqueeze(-1) * self.t
+        err = (x_t.cos().mean(-3) - self.phi).square() + x_t.sin().mean(-3).square()
+        statistic = (err @ self.weights) * proj.size(-2)
+        return statistic.mean() # average over projections and time
+    
 
 class ResidualLayer(nn.Module):
     def __init__(self, in_out_dim, hidden_dim, kernel_size=3, stride=1, padding=1):
@@ -86,7 +116,11 @@ class WorldModel(nn.Module):
             nn.Conv2d(b, out_depth, 1, 1),
         )
 
-    def forward(self, state_seq, action):
+        self.emb_history = deque(maxlen=4)
+        self.sigreg = SIGReg()
+
+
+    def forward(self, state_seq, action, return_emb=False):
         """
         state_seq.shape = (B, L, C, H, W)
         action.shape = (B, L)
@@ -108,19 +142,32 @@ class WorldModel(nn.Module):
             x = layer(x)
             xs.append(x)
         
+        emb = xs[-1]
 
         xs[-1] = action
         for i, layer in enumerate(self.up):
             x = layer(torch.cat([x, xs[-i - 1]], dim=1))
 
         out = self.final_conv(torch.cat([x, state], dim=1))
+
+        if return_emb:
+            out = F.tanh(out) / 2
+            return (out, emb.detach())
+        
         return F.tanh(out) / 2
 
-    def label(self, batch: TensorDict) -> torch.Tensor:
+    def label(self, batch: TensorDict, return_emb: bool=False) -> torch.Tensor:
         wm_in_seq = batch["obs"][:, :-1]
         wm_targ = batch["obs"][:, -1]
-        la = batch["la_q"]  # TODO: also allow using la(noq)
-        batch["wm_pred"] = self(wm_in_seq, la)
+        la = batch["la"]  # TODO: also allow using la(noq)
+        # batch["wm_pred"], emb = self(wm_in_seq, la, return_emb=return_emb) # emb = (B D 1 1)
+        out, emb = self(wm_in_seq, la, return_emb=True) # emb = (B D 1 1)
+        batch["wm_pred"] = out
+        self.emb_history.append(emb.squeeze().unsqueeze(0))
+
+        if self.emb_history == 4:
+            history_as_tensor = torch.cat(list(self.emb_history), dim=0).to('cuda')
+            return F.mse_loss(batch["wm_pred"], wm_targ) + 0.1*self.sigreg(history_as_tensor).mean()
         return F.mse_loss(batch["wm_pred"], wm_targ)
 
 
@@ -368,6 +415,9 @@ class IDM(nn.Module):
         # initialize quantizer
         self.vq = VQEmbeddingEMA(vq_config)
 
+        self.action_history = deque(maxlen=4)
+        self.sigreg = SIGReg()
+
     def forward(self, x):
         """
         x.shape = (B, T, C, H, W)
@@ -375,22 +425,31 @@ class IDM(nn.Module):
         """
         x = merge_TC_dims(x)
         la = self.policy_head(F.relu(self.fc(self.conv_stack(x))))
-        la_q, vq_loss, vq_perp, la_qinds = self.vq(la)
+        # la_q, vq_loss, vq_perp, la_qinds = self.vq(la)
 
         action_dict = TensorDict(
             dict(
                 la=la,
-                la_q=la_q,
-                la_qinds=la_qinds,
+                # la_q=la_q,
+                # la_qinds=la_qinds,
             ),
             batch_size=len(la),
         )
 
-        return action_dict, vq_loss, vq_perp
+        return action_dict, -1, -1 #, vq_loss, vq_perp
 
-    def label(self, batch: TensorDict) -> tuple[torch.Tensor, torch.Tensor]:
+    def label(self, batch: TensorDict, do_sigreg: bool=False) -> tuple[torch.Tensor, torch.Tensor]:
         action_td, vq_loss, vq_perp = self(batch["obs"])
         batch.update(action_td)
+
+        if do_sigreg:
+            sig_loss = 0
+            self.action_history.append(action_td['la'].unsqueeze(0).detach())
+            if len(self.action_history) == 4:
+                history_as_tensor = torch.cat(list(self.action_history), dim=0).to('cuda')
+                sig_loss = self.sigreg(history_as_tensor).mean()
+            return sig_loss, -1
+
         return vq_loss, vq_perp
 
     @torch.no_grad()

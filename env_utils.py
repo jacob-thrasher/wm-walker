@@ -8,7 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 # from procgen import ProcgenEnv
 import gymnasium as gym
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.utils import set_random_seed
 from gymnasium.vector import SyncVectorEnv
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv, SubprocVecEnv
 
 from RL.env import load_environment
 
@@ -83,23 +87,155 @@ def normalize_return(ep_ret, env_name):
     )
 
 
-def setup_gym_env(env_id, render_kwargs):
-    # env = load_environment(env_id=env_id, num_envs=num_envs, **render_kwargs)
-    env = gym.make(
-            env_id,
-            render_mode = "rgb_array",
-            **render_kwargs,
+def make_env(env_id: str, rank: int, seed: int = 0, render_kwargs: dict = {}):
+    """Factory for a single monitored environment."""
+    def _init():
+        env = gym.make(env_id, render_mode="rgb_array", **render_kwargs)
+        env = Monitor(env)
+        env.reset(seed=seed + rank)
+        return env
+    set_random_seed(seed)
+    return _init
+
+
+def build_vec_env(env_id: str, n_envs: int, seed: int, use_subproc: bool,
+                  render_kwargs: dict = {}):
+    """Build a vectorised environment, optionally with rendering support."""
+    if use_subproc and n_envs > 1:
+        vec_env = SubprocVecEnv(
+            [make_env(env_id, i, seed, render_kwargs) for i in range(n_envs)]
         )
-    return env
+    else:
+        vec_env = make_vec_env(
+            env_id, n_envs=n_envs, seed=seed,
+            env_kwargs={"render_mode": "rgb_array", **render_kwargs},
+        )
+    vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+    return vec_env
+
+
+def build_eval_vec_env(env_id: str, n_envs: int, seed: int,
+                       render_kwargs: dict, vecnorm_path: str) -> VecNormalize:
+    """
+    Build a batched eval env with normalisation restored.
+    Calling render_batch() returns shape (n_envs, H, W, 3).
+    """
+    vec_env = SubprocVecEnv(
+        [make_env(env_id, i, seed, render_kwargs) for i in range(n_envs)]
+    )
+    # VecNormalize applied ONCE at the top — not per sub-environment
+    vec_env = VecNormalize.load(vecnorm_path, vec_env)
+    vec_env.training = False
+    vec_env.norm_reward = False
+    return vec_env
+
+
+def render_batch(vec_env: VecNormalize) -> np.ndarray:
+    """
+    Render all sub-environments and return a single (N, H, W, 3) array.
+    Uses env_method to call render() on each subprocess in parallel.
+    """
+    frames = vec_env.env_method("render")   # list of N (H, W, 3) arrays
+    return np.stack(frames, axis=0)         # → (N, H, W, 3)
+
+# def setup_gym_env(env_id, render_kwargs):
+#     # env = load_environment(env_id=env_id, num_envs=num_envs, **render_kwargs)
+#     env = gym.make(
+#             env_id,
+#             render_mode = "rgb_array",
+#             **render_kwargs,
+#         )
+#     return env
+
+
+
+# def make_env(env_id: str, rank: int, seed: int = 0):
+#     """Factory for a single monitored environment (used by SubprocVecEnv)."""
+#     def _init():
+#         env = gym.make(env_id, render_width=64, render_height=64)
+#         env = Monitor(env)
+#         env.reset(seed=seed + rank)
+#         return env
+#     set_random_seed(seed)
+#     return _init
+
+
+# def build_vec_env(env_id: str, n_envs: int, seed: int, use_subproc: bool):
+#     """Build a vectorised (optionally multi-process) environment."""
+#     if use_subproc and n_envs > 1:
+#         vec_env = SubprocVecEnv(
+#             [make_env(env_id, i, seed) for i in range(n_envs)]
+#         )
+#     else:
+#         vec_env = make_vec_env(env_id, n_envs=n_envs, seed=seed, width=64, height=64)
+#     # Normalise observations and rewards — crucial for locomotion tasks
+#     vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+#     return vec_env
 
 def _setup_gym_env_vectorized(env_id, render_kwargs):
     def _init():
         return gym.make(env_id, render_mode="rgb_array", **render_kwargs)
     return _init
+    # def _init():
+    #     env = gym.make(
+    #         env_id,
+    #         render_mode = "rgb_array",
+    #         **render_kwargs,
+    #     )
+    
+    #     vec_env = DummyVecEnv([lambda: env])
+    #     vec_env = VecNormalize.load(
+    #         "./logs/walker2d/vecnormalize_final.pkl",
+    #         vec_env,
+    #     )
+    #     vec_env.training = False
+    #     vec_env.norm_reward = False
+    #     return vec_env
+    # return _init
+
 
 def setup_gym_env_vectorized(env_id, num_envs, render_kwargs):
     envs = SyncVectorEnv([_setup_gym_env_vectorized(env_id, render_kwargs) for _ in range(num_envs)])
     return envs
+
+
+
+# def _make_single_env(env_id, rank, seed, render_kwargs):
+#     """Factory for one plain gym env — no SB3 wrapping inside."""
+#     def _init():
+#         env = gym.make(env_id, render_mode="rgb_array", **render_kwargs)
+#         env = Monitor(env)
+#         env.reset(seed=seed + rank)
+#         return env
+#     set_random_seed(seed)
+#     return _init
+
+# def setup_gym_env_vectorized(env_id, num_envs, render_kwargs,
+#                               vecnorm_path="./logs/walker2d/vecnormalize_final.pkl"):
+#     # SubprocVecEnv holds all envs — VecNormalize wraps it exactly once
+#     vec_env = SubprocVecEnv(
+#         [_make_single_env(env_id, i, seed=42, render_kwargs=render_kwargs)
+#          for i in range(num_envs)]
+#     )
+#     vec_env = VecNormalize.load(vecnorm_path, vec_env)
+#     vec_env.training = False
+#     vec_env.norm_reward = False
+#     return vec_env
+
+    # env = gym.make(
+    #         env_id,
+    #         render_mode = "rgb_array",
+    #         **render_kwargs,
+    #     )
+    
+    # vec_env = DummyVecEnv([lambda: env])
+    # vec_env = VecNormalize.load(
+    #     "./logs/walker2d/vecnormalize_final.pkl",
+    #     vec_env,
+    # )
+    # vec_env.training = False
+    # vec_env.norm_reward = False
+    # return vec_env
 
 # def setup_procgen_env(num_envs, env_id, gamma,  distribution_mode='easy', render_mode='rgb_array'):
 #     envs = ProcgenEnv(

@@ -69,7 +69,7 @@ def get_value(self, x):
 
 policy.get_value = partial(get_value, policy)
 
-# run, logger = config.wandb_init("lapo_stage3", config.get_wandb_cfg(cfg))
+run, logger = config.wandb_init("lapo_stage3", config.get_wandb_cfg(cfg))
 
 envs = env_utils.setup_gym_env_vectorized(env_id='Walker2d-v4', 
                                           num_envs=cfg.stage3.num_envs, 
@@ -174,7 +174,6 @@ def post_update_hook(update, global_step):
                 decoder_opt.step()
             print(f"[{global_step}] loss @ epoch={epoch}: {loss.item()}")
 
-logger = None
 policy = ppo.train(
     policy,
     opt,
@@ -184,6 +183,7 @@ policy = ppo.train(
     envs,
     post_update_hook=post_update_hook,
     action_selection_hook=action_selection_hook,
+    cfg=cfg
 )
 
 out_path = paths.get_decoded_policy_path(cfg.exp_name)
@@ -191,7 +191,7 @@ torch.save(
     {
         "policy": policy.state_dict(),
         "cfg": cfg,
-        # "logger": logger,
+        "logger": logger,
     },
     out_path,
 )

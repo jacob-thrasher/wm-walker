@@ -13,8 +13,8 @@ from torch.utils.data import DataLoader
 # TRAIN_CHUNK_LEN = 32_768
 # TEST_CHUNK_LEN = 4096
 
-TRAIN_CHUNK_LEN = 250
-TEST_CHUNK_LEN  = 250
+TRAIN_CHUNK_LEN = 8128
+TEST_CHUNK_LEN  = 4096
 
 
 def _create_tensordict(length: int, obs_depth) -> TensorDict:
@@ -85,11 +85,10 @@ class DataStager:
     def _load_chunk(self, path: Path, i: int):
         data = np.load(path)
         for k in self.td.keys():
-            v = torch.from_numpy(data[k])
+            v = torch.from_numpy(data[k]).squeeze()
             if k == "obs":
                 v = v.permute(0, 3, 1, 2)
             assert len(v) == self.chunk_len, v.shape
-            print(k)
             self.td[k][i * self.chunk_len : (i + 1) * self.chunk_len] = v
 
     def get_iter(

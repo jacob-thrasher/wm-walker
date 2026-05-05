@@ -5,6 +5,8 @@ import doy
 import numpy as np
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
+import paths
 from data_loader import normalize_obs
 from tensordict import TensorDict
 
@@ -233,6 +235,7 @@ def train(
     envs,
     post_update_hook=lambda *_: None,
     action_selection_hook=None,
+    cfg=None
 ):
     device = config.DEVICE
 
@@ -251,6 +254,7 @@ def train(
     next_done = torch.zeros(rl_cfg.num_envs).to(device).float()
     num_updates = rl_cfg.steps // rl_cfg.batch_size
 
+    rewards = []
     for update in doy.loop(1, num_updates + 1, desc="Running PPO training..."):
         if rl_cfg.anneal_lr:
             lr_sched.step(global_step)
@@ -311,5 +315,23 @@ def train(
             action_selection_hook,
         )
 
+        avg_reward = buf['rewards'][-1].mean().item()
+        rewards.append(avg_reward)
+        plt.figure()
+        plt.plot(rewards, color='red', label='rewards')
+        plt.legend()
+        plt.title("Rewards, Stage 3 - Decoding")
+        plt.savefig('./exp_results/walker_2/stage3_rewards.png')
+
         post_update_hook(update, global_step)
+
+        out_path = paths.get_decoded_policy_path(cfg.exp_name)
+        torch.save(
+            {
+                "policy": policy.state_dict(),
+                "cfg": cfg,
+                # "logger": logger,
+            },
+            out_path,
+        )
     return policy

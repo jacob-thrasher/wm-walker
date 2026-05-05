@@ -103,6 +103,7 @@
 import argparse
 import sys
 from pathlib import Path
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
  
 # ── Optional pretty output ────────────────────────────────────────────────────
 try:
@@ -184,3 +185,21 @@ def load_environment(env_id, render_kwargs, num_envs=1, ):
             **render_kwargs,
         )
     return env
+
+def load_vec_environment(env_id, vec_path="./logs/walker2d/vecnormalize_final.pkl", render_kwargs=None):
+
+    env = gym.make(
+            env_id,
+            render_mode = "rgb_array",
+            **render_kwargs,
+        )
+
+    vec_env = DummyVecEnv([lambda: env])
+    vec_env = VecNormalize.load(
+        vec_path,
+        vec_env,
+    )
+    vec_env.training = False
+    vec_env.norm_reward = False
+
+    return vec_env

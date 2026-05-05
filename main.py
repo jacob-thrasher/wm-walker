@@ -2,7 +2,8 @@
 import argparse
 import sys
 from pathlib import Path
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
  
 # ── Optional pretty output ────────────────────────────────────────────────────
 try:
@@ -44,8 +45,8 @@ CONFIG = dict(
     env_id       = "Walker2d-v4",  # any Gymnasium MuJoCo env ID (see --list)
     random_seed  = 42,
     num_steps    = 500,            # max steps per episode to record
-    render_width = 480,
-    render_height= 480,
+    render_width = 64,
+    render_height= 64,
     camera_name  = None,           # None = default camera; or e.g. "track"
     fps          = 30,
     output_dir   = Path("./figures"),
@@ -78,6 +79,14 @@ def run(cfg: dict) -> None:
     except TypeError:
         # Some older envs don't accept width/height in the constructor.
         env = gym.make(env_id, render_mode="rgb_array")
+
+    vec_env = DummyVecEnv([lambda: env])
+    vec_env = VecNormalize.load(
+        "./logs/walker2d/vecnormalize_final.pkl",
+        vec_env,
+    )
+    vec_env.training = False
+    vec_env.norm_reward = False
  
     obs_space    = env.observation_space
     action_space = env.action_space
@@ -94,34 +103,37 @@ def run(cfg: dict) -> None:
     frames  = []
     rewards = []
  
-    obs, info = env.reset(seed=cfg["random_seed"])
+    # obs, info = vec_env.reset(seed=cfg["random_seed"])
+    obs = vec_env.reset()
     frames.append(env.render())   # capture the initial frame
  
 
-    model = PPO.load('./logs/walker2d/final_model.zip', env=env)
+    # model = PPO.load('./logs/walker2d/final_model.zip', env=vec_env)
+    model = SAC.load('./logs/walker2d/best_model/best_model.zip', env=vec_env)
 
 
     print(f"\n  Running up to {cfg['num_steps']} steps …")
     for step in range(cfg["num_steps"]):
         # action = random_policy(obs, action_space)
-        action = model.predict(obs)[0]
-        obs, reward, terminated, truncated, info = env.step(action)
+        action = model.predict(obs, deterministic=True)[0]
+        print(action)
+        obs, reward, done, info = vec_env.step(action)
         rewards.append(reward)
  
         # Render every other step to keep memory manageable
-        if step % 2 == 0:
-            frames.append(env.render())
+        # if step % 2 == 0:
+        frames.append(env.render())
  
-        if terminated or truncated:
+        if done:
             print(f"    Episode ended at step {step + 1}  "
-                  f"({'terminated' if terminated else 'truncated'})")
+                  f"({'terminated' if done else 'truncated'})")
             break
  
     env.close()
- 
-    print(f"  Steps run    : {step + 1}")
-    print(f"  Total reward : {sum(rewards):.2f}  "
-          f"(mean {np.mean(rewards):.3f})")
+    print('# Frames', len(frames))
+    # print(f"  Steps run    : {step + 1}")
+    # print(f"  Total reward : {sum(rewards):.2f}  "
+    #       f"(mean {np.mean(rewards):.3f})")
  
     # ── Save outputs ──────────────────────────────────────────────────────────
     out  = Path(cfg["output_dir"])

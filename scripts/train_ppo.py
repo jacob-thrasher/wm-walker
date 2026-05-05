@@ -71,7 +71,7 @@ SAC_HYPERPARAMS = dict(
 def make_env(env_id: str, rank: int, seed: int = 0):
     """Factory for a single monitored environment (used by SubprocVecEnv)."""
     def _init():
-        env = gym.make(env_id)
+        env = gym.make(env_id, render_width=64, render_height=64)
         env = Monitor(env)
         env.reset(seed=seed + rank)
         return env
@@ -182,7 +182,7 @@ def main():
     model = algo_cls(
         policy="MlpPolicy",
         env=vec_env,
-        verbose=1,
+        verbose=0,
         seed=args.seed,
         device=device,
         # tensorboard_log=f"{args.log_dir}/tensorboard",

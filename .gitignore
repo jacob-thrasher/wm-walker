@@ -5,6 +5,7 @@ expert_data/*
 exp_results/*
 .vscode
 logs
+wandb
 
 
 # Byte-compiled / optimized / DLL files
