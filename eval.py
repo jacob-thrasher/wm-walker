@@ -20,14 +20,19 @@ cfg = config.get(base_cfg=state_dict_policy["cfg"], reload_keys=["stage2", "stag
 wm = EvalWorldModel(state_dict_policy, state_dict_idm)
 
 
-# train_data, valid_data = data_loader.load('walker')
-# train_dataloader = train_data.get_iter(64)
-# valid_dataloader = valid_data.get_iter(64)
+train_data, valid_data = data_loader.load('walker')
+train_dataloader = train_data.get_iter(64)
+valid_dataloader = valid_data.get_iter(64)
 
-# batch = next(iter(valid_dataloader))
-# obs_in_seq = batch['obs'].to(device)
-# action = batch['ta'].to(device)
-# out = wm.idm(obs_in_seq)
+batch = next(iter(valid_dataloader))
+obs_in_seq = batch['obs'].to(device)
+action = batch['ta'].to(device)
+out, mu, logvar = wm.idm(obs_in_seq)
+print(out['la'])
+print(mu)
+print()
+print(logvar)
+input()
 
 
 envs = env_utils.setup_gym_env_vectorized(env_id='Walker2d-v4', 

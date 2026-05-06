@@ -410,8 +410,9 @@ class IDM(nn.Module):
         self.conv_stack, self.fc = get_impala(
             obs_shape, impala_scale, impala_channels, impala_features
         )
-        self.policy_head = nn.Linear(impala_features, action_dim)
-
+        # self.policy_head = nn.Linear(impala_features, action_dim)
+        self.mu = nn.Linear(impala_features, action_dim)
+        self.logvar = nn.Linear(impala_features, action_dim)
         # initialize quantizer
         self.vq = VQEmbeddingEMA(vq_config)
 
@@ -424,8 +425,11 @@ class IDM(nn.Module):
         the IDM predicts the action between the last and second to last frames (T dim).
         """
         x = merge_TC_dims(x)
-        la = self.policy_head(F.relu(self.fc(self.conv_stack(x))))
+        # la = self.policy_head(F.relu(self.fc(self.conv_stack(x))))
+        mu = self.mu(F.relu(self.fc(self.conv_stack(x))))
+        logvar = self.mu(F.relu(self.fc(self.conv_stack(x))))
         # la_q, vq_loss, vq_perp, la_qinds = self.vq(la)
+        la = self.reparameterize(mu, logvar)
 
         action_dict = TensorDict(
             dict(
@@ -436,21 +440,32 @@ class IDM(nn.Module):
             batch_size=len(la),
         )
 
-        return action_dict, -1, -1 #, vq_loss, vq_perp
+        return action_dict, mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        bs, dim = mu.size()
+        std = logvar.mul(0.5).exp()
+        eps = torch.randn((bs, dim), device=mu.device)
+        return mu + torch.mul(eps, std)
+
+    def kl_loss(self, mu, logvar):
+        return -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
 
     def label(self, batch: TensorDict, do_sigreg: bool=False) -> tuple[torch.Tensor, torch.Tensor]:
-        action_td, vq_loss, vq_perp = self(batch["obs"])
+        action_td, mu, logvar = self(batch["obs"])
         batch.update(action_td)
 
-        if do_sigreg:
-            sig_loss = 0
-            self.action_history.append(action_td['la'].unsqueeze(0).detach())
-            if len(self.action_history) == 4:
-                history_as_tensor = torch.cat(list(self.action_history), dim=0).to('cuda')
-                sig_loss = self.sigreg(history_as_tensor).mean()
-            return sig_loss, -1
+        # if do_sigreg:
+        #     sig_loss = 0
+        #     self.action_history.append(action_td['la'].unsqueeze(0).detach())
+        #     if len(self.action_history) == 4:
+        #         history_as_tensor = torch.cat(list(self.action_history), dim=0).to('cuda')
+        #         sig_loss = self.sigreg(history_as_tensor).mean()
+        #     return sig_loss, -1
 
-        return vq_loss, vq_perp
+        kl_loss = self.kl_loss(mu, logvar)
+
+        return kl_loss, -1
 
     @torch.no_grad()
     def label_chunked(

@@ -57,7 +57,7 @@ for step in loop(
     opt.zero_grad()
     loss.backward()
     opt.step()
-
+ 
     logger(
         step=step,
         loss=loss,

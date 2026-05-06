@@ -38,9 +38,9 @@ def train_step():
 
     batch = next(train_iter)
 
-    sigreg_loss, vq_perp = idm.label(batch, do_sigreg=False)
+    kl_loss, sigreg_loss = idm.label(batch, do_sigreg=False)
     wm_loss = wm.label(batch, return_emb=True)
-    loss = wm_loss# + 0.1*sigreg_loss
+    loss = wm_loss + 0.01*kl_loss
 
     opt.zero_grad()
     loss.backward()
@@ -51,8 +51,8 @@ def train_step():
         step,
         wm_loss=wm_loss,
         global_step=step * cfg.stage1.bs,
-        vq_perp=vq_perp,
-        vq_loss=sigreg_loss,
+        vq_perp=sigreg_loss,
+        vq_loss=kl_loss,
         grad_norm=grad_norm,
         **lr_sched.get_state(),
     )
